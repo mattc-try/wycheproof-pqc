@@ -1,0 +1,98 @@
+{
+  "type": "object",
+  "definitions": {
+    "FalconSignTestGroup": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "enum": ["FalconSign"],
+          "description": "Indicates the type of test group."
+        },
+        "privateKey": {
+          "type": "string",
+          "format": "HexBytes",
+          "description": "Encoded Falcon private key."
+        },
+        "tests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FalconSignTestVector"
+          }
+        }
+      },
+      "required": ["type", "privateKey", "tests"]
+    },
+    "FalconSignTestVector": {
+      "type": "object",
+      "properties": {
+        "tcId": {
+          "type": "integer",
+          "description": "Identifier of the test case."
+        },
+        "comment": {
+          "type": "string",
+          "description": "A brief description of the test case."
+        },
+        "msg": {
+          "type": "string",
+          "format": "HexBytes",
+          "description": "The message to sign."
+        },
+        "sig": {
+          "type": "string",
+          "format": "HexBytes",
+          "description": "The encoded signature (empty in case of failure)."
+        },
+        "result": {
+          "type": "string",
+          "description": "Test result.",
+          "enum": ["valid", "invalid"]
+        },
+        "flags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "A list of flags."
+        }
+      },
+      "required": ["tcId", "msg", "sig", "result"]
+    }
+  },
+  "properties": {
+    "algorithm": {
+      "type": "string",
+      "description": "The primitive tested in the test file (e.g., Falcon-512, Falcon-1024)."
+    },
+    "generatorVersion": {
+      "type": "string",
+      "description": "The version of the test vector generator."
+    },
+    "header": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Additional documentation or comments."
+    },
+    "notes": {
+      "type": "object",
+      "description": "A description of the labels used in the test vectors."
+    },
+    "numberOfTests": {
+      "type": "integer",
+      "description": "The total number of test vectors in this file."
+    },
+    "schema": {
+      "enum": ["falcon_sign_schema.json"],
+      "description": "The schema file this test vector file conforms to."
+    },
+    "testGroups": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/FalconSignTestGroup"
+      }
+    }
+  },
+  "required": ["algorithm", "generatorVersion", "numberOfTests", "schema", "testGroups"]
+}
