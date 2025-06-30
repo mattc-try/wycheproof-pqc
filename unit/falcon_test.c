@@ -7,25 +7,11 @@
 #include <string.h>
 #include <stdint.h>
 #include <assert.h>
+#include "../implementations/falcon.h"  // Include the Falcon header
 
 // Test configuration
 #define TEST_ITERATIONS 100
 #define TEST_MSG "Test message for Falcon signatures"
-#define MAX_SIG_LEN 2048
-
-// Falcon parameters
-typedef enum {
-    FALCON512,
-    FALCON1024
-} falcon_param_t;
-
-// Implementation interface
-int falcon_keygen(falcon_param_t param, uint8_t **pk, uint8_t **sk);
-int falcon_sign(const uint8_t *sk, const uint8_t *msg, size_t msg_len, 
-                uint8_t *sig, size_t *sig_len);
-int falcon_verify(const uint8_t *pk, const uint8_t *msg, size_t msg_len, 
-                  const uint8_t *sig, size_t sig_len);
-void falcon_free_keys(uint8_t *pk, uint8_t *sk);
 
 // Test utilities
 #define TEST_ASSERT(cond, msg) do { \
@@ -35,10 +21,10 @@ void falcon_free_keys(uint8_t *pk, uint8_t *sk);
     } \
 } while(0)
 
-#define TEST_RUN(name) do { \
+#define TEST_RUN(name, param_val) do { \
     printf("  %-30s", #name); \
     fflush(stdout); \
-    name(); \
+    name(param_val); \
     printf(" [PASS]\n"); \
 } while(0)
 
@@ -50,24 +36,14 @@ static void test_keygen(falcon_param_t param) {
     uint8_t *pk = NULL, *sk = NULL;
     
     // Generate key pair
-    TEST_ASSERT(falcon_keygen(param, &pk, &sk), "Key generation failed");
+    TEST_ASSERT(falcon_keygen(param, &pk, &sk) == FALCON_OK, "Key generation failed");
     
     // Validate key lengths
-    size_t expected_pk_len = (param == FALCON512) ? 897 : 1793;
-    size_t expected_sk_len = (param == FALCON512) ? 1281 : 2305;
-    
-    size_t pk_len = (param == FALCON512) ? 
-                    /* FALCON512_PK_LEN */ 897 : 
-                    /* FALCON1024_PK_LEN */ 1793;
-    
-    size_t sk_len = (param == FALCON512) ? 
-                    /* FALCON512_SK_LEN */ 1281 : 
-                    /* FALCON1024_SK_LEN */ 2305;
+    size_t expected_pk_len = (param == FALCON512) ? FALCON512_PK_LEN : FALCON1024_PK_LEN;
+    size_t expected_sk_len = (param == FALCON512) ? FALCON512_SK_LEN : FALCON1024_SK_LEN;
     
     TEST_ASSERT(pk != NULL, "Public key is NULL");
     TEST_ASSERT(sk != NULL, "Secret key is NULL");
-    TEST_ASSERT(pk_len == expected_pk_len, "Invalid public key length");
-    TEST_ASSERT(sk_len == expected_sk_len, "Invalid secret key length");
     
     // Clean up
     falcon_free_keys(pk, sk);
@@ -75,31 +51,32 @@ static void test_keygen(falcon_param_t param) {
 
 static void test_sign_verify(falcon_param_t param) {
     uint8_t *pk = NULL, *sk = NULL;
-    uint8_t sig[MAX_SIG_LEN];
+    uint8_t sig[FALCON1024_SIG_MAX];  // Use largest possible buffer
     size_t sig_len;
     const uint8_t *msg = (const uint8_t *)TEST_MSG;
     size_t msg_len = strlen(TEST_MSG);
     
     // Generate key pair
-    TEST_ASSERT(falcon_keygen(param, &pk, &sk), "Key generation failed");
+    TEST_ASSERT(falcon_keygen(param, &pk, &sk) == FALCON_OK, "Key generation failed");
     
     // Sign message
-    TEST_ASSERT(falcon_sign(sk, msg, msg_len, sig, &sig_len), "Signing failed");
+    sig_len = (param == FALCON512) ? FALCON512_SIG_MAX : FALCON1024_SIG_MAX;
+    TEST_ASSERT(falcon_sign(sk, msg, msg_len, sig, &sig_len) == FALCON_OK, "Signing failed");
     
     // Verify valid signature
-    TEST_ASSERT(falcon_verify(pk, msg, msg_len, sig, sig_len), 
+    TEST_ASSERT(falcon_verify(pk, msg, msg_len, sig, sig_len) == FALCON_OK, 
                "Verification failed for valid signature");
     
     // Verify with wrong message
     uint8_t bad_msg[] = "Tampered message";
-    TEST_ASSERT(!falcon_verify(pk, bad_msg, sizeof(bad_msg)-1, sig, sig_len), 
+    TEST_ASSERT(falcon_verify(pk, bad_msg, sizeof(bad_msg)-1, sig, sig_len) == FALCON_VERIFY_FAIL, 
                "Verification passed for wrong message");
     
     // Verify with corrupted signature
-    uint8_t bad_sig[MAX_SIG_LEN];
+    uint8_t bad_sig[FALCON1024_SIG_MAX];
     memcpy(bad_sig, sig, sig_len);
     bad_sig[sig_len/2] ^= 0xFF;  // Flip bits
-    TEST_ASSERT(!falcon_verify(pk, msg, msg_len, bad_sig, sig_len), 
+    TEST_ASSERT(falcon_verify(pk, msg, msg_len, bad_sig, sig_len) == FALCON_VERIFY_FAIL, 
                "Verification passed for corrupted signature");
     
     // Clean up
@@ -108,20 +85,21 @@ static void test_sign_verify(falcon_param_t param) {
 
 static void test_empty_message(falcon_param_t param) {
     uint8_t *pk = NULL, *sk = NULL;
-    uint8_t sig[MAX_SIG_LEN];
+    uint8_t sig[FALCON1024_SIG_MAX];
     size_t sig_len;
     const uint8_t *msg = (const uint8_t *)"";
     size_t msg_len = 0;
     
     // Generate key pair
-    TEST_ASSERT(falcon_keygen(param, &pk, &sk), "Key generation failed");
+    TEST_ASSERT(falcon_keygen(param, &pk, &sk) == FALCON_OK, "Key generation failed");
     
     // Sign empty message
-    TEST_ASSERT(falcon_sign(sk, msg, msg_len, sig, &sig_len), 
+    sig_len = (param == FALCON512) ? FALCON512_SIG_MAX : FALCON1024_SIG_MAX;
+    TEST_ASSERT(falcon_sign(sk, msg, msg_len, sig, &sig_len) == FALCON_OK, 
                "Signing empty message failed");
     
     // Verify empty message
-    TEST_ASSERT(falcon_verify(pk, msg, msg_len, sig, sig_len), 
+    TEST_ASSERT(falcon_verify(pk, msg, msg_len, sig, sig_len) == FALCON_OK, 
                "Verification failed for empty message");
     
     // Clean up
@@ -130,20 +108,21 @@ static void test_empty_message(falcon_param_t param) {
 
 static void test_signature_length(falcon_param_t param) {
     uint8_t *pk = NULL, *sk = NULL;
-    uint8_t sig[MAX_SIG_LEN];
+    uint8_t sig[FALCON1024_SIG_MAX];
     size_t sig_len;
     const uint8_t *msg = (const uint8_t *)TEST_MSG;
     size_t msg_len = strlen(TEST_MSG);
     
     // Generate key pair
-    TEST_ASSERT(falcon_keygen(param, &pk, &sk), "Key generation failed");
+    TEST_ASSERT(falcon_keygen(param, &pk, &sk) == FALCON_OK, "Key generation failed");
     
     // Sign message
-    TEST_ASSERT(falcon_sign(sk, msg, msg_len, sig, &sig_len), "Signing failed");
+    sig_len = (param == FALCON512) ? FALCON512_SIG_MAX : FALCON1024_SIG_MAX;
+    TEST_ASSERT(falcon_sign(sk, msg, msg_len, sig, &sig_len) == FALCON_OK, "Signing failed");
     
     // Validate signature length
-    size_t min_sig = (param == FALCON512) ? 617 : 1214;
-    size_t max_sig = (param == FALCON512) ? 724 : 1337;
+    size_t min_sig = (param == FALCON512) ? 617 : 1214;  // Minimum expected lengths
+    size_t max_sig = (param == FALCON512) ? FALCON512_SIG_MAX : FALCON1024_SIG_MAX;
     
     TEST_ASSERT(sig_len >= min_sig, "Signature too short");
     TEST_ASSERT(sig_len <= max_sig, "Signature too long");
@@ -154,18 +133,19 @@ static void test_signature_length(falcon_param_t param) {
 
 static void test_determinism(falcon_param_t param) {
     uint8_t *pk = NULL, *sk = NULL;
-    uint8_t sig1[MAX_SIG_LEN], sig2[MAX_SIG_LEN];
+    uint8_t sig1[FALCON1024_SIG_MAX], sig2[FALCON1024_SIG_MAX];
     size_t sig_len1, sig_len2;
     const uint8_t *msg = (const uint8_t *)TEST_MSG;
     size_t msg_len = strlen(TEST_MSG);
     
     // Generate key pair
-    TEST_ASSERT(falcon_keygen(param, &pk, &sk), "Key generation failed");
+    TEST_ASSERT(falcon_keygen(param, &pk, &sk) == FALCON_OK, "Key generation failed");
     
     // Sign same message twice
-    TEST_ASSERT(falcon_sign(sk, msg, msg_len, sig1, &sig_len1), 
+    sig_len1 = sig_len2 = (param == FALCON512) ? FALCON512_SIG_MAX : FALCON1024_SIG_MAX;
+    TEST_ASSERT(falcon_sign(sk, msg, msg_len, sig1, &sig_len1) == FALCON_OK, 
                "First signing failed");
-    TEST_ASSERT(falcon_sign(sk, msg, msg_len, sig2, &sig_len2), 
+    TEST_ASSERT(falcon_sign(sk, msg, msg_len, sig2, &sig_len2) == FALCON_OK, 
                "Second signing failed");
     
     // Falcon signatures are non-deterministic
@@ -187,11 +167,11 @@ static void run_tests_for_param(falcon_param_t param) {
     printf("\n[%s Parameter Set]\n", param_name);
     
     for (int i = 0; i < TEST_ITERATIONS; i++) {
-        TEST_RUN(test_keygen);
-        TEST_RUN(test_sign_verify);
-        TEST_RUN(test_empty_message);
-        TEST_RUN(test_signature_length);
-        TEST_RUN(test_determinism);
+        TEST_RUN(test_keygen, param);
+        TEST_RUN(test_sign_verify, param);
+        TEST_RUN(test_empty_message, param);
+        TEST_RUN(test_signature_length, param);
+        TEST_RUN(test_determinism, param);
     }
 }
 
