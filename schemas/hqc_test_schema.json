@@ -1,0 +1,233 @@
+{
+  "type": "object",
+  "properties": {
+    "algorithm": {
+      "enum": [
+        "HQC"
+      ]
+    },
+    "header": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "additional documentation"
+    },
+    "notes": {
+      "type": "object",
+      "description": "a description of the labels used in the test vectors"
+    },
+    "numberOfTests": {
+      "type": "integer",
+      "description": "the number of test vectors in this test"
+    },
+    "schema": {
+      "enum": [
+        "hqc_test_schema.json"
+      ]
+    },
+    "testGroups": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "#/definitions/HQCTestGroup"
+          },
+          {
+            "$ref": "#/definitions/HQCEncapsTestGroup"
+          }
+        ]
+      }
+    }
+  },
+  "required": [
+    "algorithm",
+    "numberOfTests",
+    "schema",
+    "testGroups"
+  ],
+  "additionalProperties": false,
+  "definitions": {
+    "HQCTestGroup": {
+      "type": "object",
+      "description": "A test for KeyGen and/or Decaps",
+      "properties": {
+        "type": {
+          "enum": [
+            "HQCTest"
+          ]
+        },
+        "source": {
+          "$ref": "common.json#/definitions/Source"
+        },
+        "parameterSet": {
+          "enum": [
+            "HQC-128",
+            "HQC-192",
+            "HQC-256"
+          ]
+        },
+        "tests": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "tcId": {
+                "type": "integer",
+                "description": "Identifier of the test case"
+              },
+              "comment": {
+                "type": "string",
+                "description": "A brief description of the test case"
+              },
+              "seed": {
+                "type": "string",
+                "format": "HexBytes",
+                "description": "The seed for key generation"
+              },
+              "pk": {
+                "type": "string",
+                "format": "HexBytes",
+                "description": "The public key derived from the seed"
+              },
+              "sk": {
+                "type": "string",
+                "format": "HexBytes",
+                "description": "The secret key derived from the seed"
+              },
+              "c": {
+                "type": "string",
+                "format": "HexBytes",
+                "description": "An input ciphertext"
+              },
+              "K": {
+                "type": "string",
+                "format": "HexBytes",
+                "description": "The output shared secret"
+              },
+              "result": {
+                "type": "string",
+                "description": "Test result",
+                "enum": [
+                  "valid",
+                  "invalid",
+                  "acceptable"
+                ]
+              },
+              "flags": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "A list of flags"
+              }
+            },
+            "required": [
+              "tcId",
+              "seed",
+              "pk",
+              "c",
+              "K",
+              "result"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "source",
+        "parameterSet",
+        "tests"
+      ],
+      "additionalProperties": false
+    },
+    "HQCEncapsTestGroup": {
+      "type": "object",
+      "description": "A test for Encaps",
+      "properties": {
+        "type": {
+          "enum": [
+            "HQCEncapsTest"
+          ]
+        },
+        "source": {
+          "$ref": "common.json#/definitions/Source"
+        },
+        "parameterSet": {
+          "enum": [
+            "HQC-128",
+            "HQC-192",
+            "HQC-256"
+          ]
+        },
+        "tests": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "tcId": {
+                "type": "integer",
+                "description": "Identifier of the test case"
+              },
+              "comment": {
+                "type": "string",
+                "description": "A brief description of the test case"
+              },
+              "pk": {
+                "type": "string",
+                "format": "HexBytes",
+                "description": "The public key"
+              },
+              "m": {
+                "type": "string",
+                "format": "HexBytes",
+                "description": "The HQC.Encaps_internal m input"
+              },
+              "c": {
+                "type": "string",
+                "format": "HexBytes",
+                "description": "The output ciphertext"
+              },
+              "K": {
+                "type": "string",
+                "format": "HexBytes",
+                "description": "The output shared secret"
+              },
+              "result": {
+                "type": "string",
+                "description": "Test result",
+                "enum": [
+                  "valid",
+                  "invalid",
+                  "acceptable"
+                ]
+              },
+              "flags": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "A list of flags"
+              }
+            },
+            "required": [
+              "tcId",
+              "pk",
+              "m",
+              "c",
+              "K",
+              "result"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "source",
+        "parameterSet",
+        "tests"
+      ],
+      "additionalProperties": false
+    }
+  }
+}
